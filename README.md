@@ -18,6 +18,8 @@ Currently runs with:
 - Angular v7.2.0
 - Electron v4.0.0
 - Electron Builder v20.28.1
+- Sequelize v4.42.0
+- Sqlite3 v4.0.6
 
 With this sample, you can :
 

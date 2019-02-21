@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, screen, ipcMain } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 
@@ -10,6 +10,7 @@ function createWindow() {
 
   const electronScreen = screen;
   const size = electronScreen.getPrimaryDisplay().workAreaSize;
+  const sqlite3 = require('sqlite3');
 
   // Create the browser window.
   win = new BrowserWindow({
@@ -33,6 +34,63 @@ function createWindow() {
   }
 
   win.webContents.openDevTools();
+
+  // Database creation
+  // or /path/to/database/file.db
+  const Sequelize = require('sequelize');
+
+  const sequelize = new Sequelize('test', 'testuser', 'testpwd', {
+    host: 'localhost',
+    dialect: 'sqlite',
+    operatorsAliases: false,
+
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+
+    // SQLite only
+    storage: 'database.sqlite'
+  });
+
+  // Database events catcher (if growing, put it in external file)
+  ipcMain.on('databaseSelectQuery', function () {
+
+    sequelize
+      .authenticate()
+      .then(() => {
+        console.log('Connection has been established successfully.');
+
+        const User = sequelize.define('user', {
+          firstName: {
+            type: Sequelize.STRING
+          },
+          lastName: {
+            type: Sequelize.STRING
+          }
+        });
+
+        // force: true will drop the table if it already exists
+        User.sync({force: true}).then(() => {
+          // Table created
+          return User.create({
+            firstName: 'John',
+            lastName: 'Hancock'
+          });
+        }).then(() => {
+
+          User.findAll().then(users => {
+            console.log(users)
+            win.webContents.send('databaseSelectQueryResults', users);
+          })
+        });
+      })
+      .catch(err => {
+        console.error('Unable to connect to the database:', err);
+      });
+  });
 
   // Emitted when the window is closed.
   win.on('closed', () => {
